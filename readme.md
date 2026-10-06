@@ -1,51 +1,185 @@
-# Công cụ ghép ảnh (stitch.py)
+# Hướng dẫn sử dụng công cụ ghép ảnh (stitch.py)
 
 Công cụ này ghép nhiều ảnh có phần chồng lên nhau (ảnh vệ tinh, ảnh chụp màn hình bản đồ, ảnh scan) thành một ảnh lớn. Kết quả là file PNG, chỗ nào không có ảnh thì để **trong suốt**.
 
-- Ảnh chuẩn là ảnh có **thời gian tạo cũ nhất** trong thư mục. Ảnh này giữ nguyên, không bị xoay hay méo.
-- Các ảnh còn lại được dò phần giao nhau rồi tự xoay hoặc co giãn để khớp vào. Bạn không cần đặt tên hay sắp xếp ảnh theo thứ tự.
+- **Ảnh chuẩn** là ảnh có **thời gian tạo cũ nhất** trong thư mục. Ảnh này giữ nguyên, không bị xoay hay méo.
+- Các ảnh còn lại được dò phần giao nhau rồi tự xoay hoặc co giãn để khớp vào. Bạn không cần sắp xếp ảnh theo thứ tự.
+
+Thư mục công cụ gồm:
+```
+ghep-anh/
+├── stitch.py          # chương trình chính
+├── requirements.txt   # danh sách thư viện (numpy, opencv-python-headless)
+├── install.bat / install.sh   # (tuỳ chọn) script cài tự động
+├── stitch.bat  / stitch.sh    # (tuỳ chọn) script chạy nhanh
+└── HUONG_DAN.md
+```
 
 ---
 
-## 1. Yêu cầu
+## Phần A — Windows
 
-- **Python 3.9 trở lên**
-  - Windows: tải tại https://www.python.org/downloads/ và nhớ **tick "Add python.exe to PATH"** khi cài.
-  - Ubuntu/Debian: `sudo apt install python3 python3-venv`
-  - macOS: `brew install python`
-- Cần có mạng ở lần cài đặt đầu tiên (để tải OpenCV và NumPy, khoảng 50 MB).
+### A1. Cài Python (chỉ làm 1 lần)
+1. Tải Python 3.9 trở lên tại https://www.python.org/downloads/
+2. Khi cài, **tick ô "Add python.exe to PATH"**.
+3. Mở **Command Prompt** (cmd) rồi kiểm tra:
+   ```bat
+   python --version
+   ```
 
-## 2. Cài đặt (chỉ làm 1 lần)
+### A2. Tạo môi trường ảo riêng và cài thư viện (chỉ làm 1 lần)
+Giả sử bạn giải nén công cụ vào `D:\tools\ghep-anh`.
 
-Giải nén thư mục `ghep-anh` vào chỗ bạn muốn, ví dụ `D:\tools\ghep-anh`.
+```bat
+cd /d D:\tools\ghep-anh
 
-**Windows:** nhấp đúp vào `install.bat`.
+:: 1. Tạo môi trường ảo tên .venv ngay trong thư mục công cụ
+python -m venv .venv
 
-**Linux / macOS:**
-```bash
-cd ghep-anh
-chmod +x install.sh
-./install.sh
+:: 2. Kích hoạt môi trường ảo
+.venv\Scripts\activate
+
+:: 3. Cài thư viện vào môi trường ảo
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+:: 4. Kiểm tra
+python -c "import cv2, numpy; print('OpenCV', cv2.__version__, '| NumPy', numpy.__version__)"
 ```
 
-Script cài đặt sẽ tạo **môi trường ảo riêng** là thư mục `.venv` nằm ngay trong `ghep-anh`, rồi cài thư viện vào đó.
-- Python hệ thống và các dự án khác **không bị ảnh hưởng**.
-- Muốn gỡ hoàn toàn thì chỉ cần xoá thư mục `ghep-anh`.
-- Muốn cài lại từ đầu thì xoá thư mục `.venv` rồi chạy lại `install`.
+Sau bước 2, đầu dòng lệnh sẽ có chữ `(.venv)`, ví dụ `(.venv) D:\tools\ghep-anh>`. Chữ này cho biết bạn **đang ở trong môi trường ảo**, và mọi lệnh `python` hoặc `pip` lúc này chỉ tác động vào `.venv`, không ảnh hưởng Python của máy.
 
-Khi cài thành công, màn hình hiện dòng kiểu `OpenCV 4.x.x | NumPy 2.x.x`.
+> **Nếu dùng PowerShell** thay cho cmd, lệnh kích hoạt là:
+> ```powershell
+> .venv\Scripts\Activate.ps1
+> ```
+> Nếu bị báo lỗi *"running scripts is disabled on this system"*, hãy chạy lệnh sau **một lần**, rồi kích hoạt lại:
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+> ```
 
-## 3. Sử dụng
+### A3. Chạy ghép ảnh (mỗi lần sử dụng)
+```bat
+cd /d D:\tools\ghep-anh
+.venv\Scripts\activate
 
-### Cách nhanh nhất (Windows)
-**Kéo thả thư mục ảnh vào file `stitch.bat`**. Kết quả được lưu ở `<thư mục ảnh>\stitched.png`.
+python stitch.py D:\anh_ve_tinh
+```
+Kết quả được lưu ở `D:\anh_ve_tinh\stitched.png`.
 
-### Dòng lệnh
+Dùng xong, thoát môi trường ảo bằng lệnh:
+```bat
+deactivate
+```
 
-| Hệ điều hành | Lệnh |
-|---|---|
-| Windows (cmd / PowerShell) | `D:\tools\ghep-anh\stitch.bat D:\anh_ve_tinh` |
-| Linux / macOS | `./stitch.sh ~/anh_ve_tinh` |
+**Chạy mà không cần kích hoạt:** gọi thẳng Python trong `.venv`. Lệnh này chạy được từ bất kỳ thư mục nào.
+```bat
+D:\tools\ghep-anh\.venv\Scripts\python.exe D:\tools\ghep-anh\stitch.py D:\anh_ve_tinh
+```
+
+---
+
+## Phần B — Ubuntu / Linux
+
+### B1. Cài Python và venv (chỉ làm 1 lần)
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip
+python3 --version
+```
+
+### B2. Tạo môi trường ảo riêng và cài thư viện (chỉ làm 1 lần)
+Giả sử công cụ nằm ở `~/tools/ghep-anh`.
+
+```bash
+cd ~/tools/ghep-anh
+
+# 1. Tạo môi trường ảo tên .venv
+python3 -m venv .venv
+
+# 2. Kích hoạt môi trường ảo
+source .venv/bin/activate
+
+# 3. Cài thư viện vào môi trường ảo
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# 4. Kiểm tra
+python -c "import cv2, numpy; print('OpenCV', cv2.__version__, '| NumPy', numpy.__version__)"
+```
+
+Sau bước 2, đầu dòng lệnh sẽ có `(.venv)`. Từ đây bạn dùng `python` và `pip`, không cần gõ `python3` hay `pip3` nữa.
+
+> Không cần `sudo` khi `pip install` trong môi trường ảo. Nếu thấy lỗi *"externally-managed-environment"*, nghĩa là bạn **chưa kích hoạt** môi trường ảo: hãy chạy lại lệnh `source .venv/bin/activate`.
+
+### B3. Chạy ghép ảnh (mỗi lần sử dụng)
+```bash
+cd ~/tools/ghep-anh
+source .venv/bin/activate
+
+python stitch.py ~/anh_ve_tinh
+```
+Kết quả được lưu ở `~/anh_ve_tinh/stitched.png`.
+
+Dùng xong, thoát môi trường ảo bằng lệnh:
+```bash
+deactivate
+```
+
+**Chạy mà không cần kích hoạt:**
+```bash
+~/tools/ghep-anh/.venv/bin/python ~/tools/ghep-anh/stitch.py ~/anh_ve_tinh
+```
+
+**(Tuỳ chọn) Tạo lệnh tắt `ghepanh`** để gõ được ở bất kỳ thư mục nào:
+```bash
+echo "alias ghepanh='~/tools/ghep-anh/.venv/bin/python ~/tools/ghep-anh/stitch.py'" >> ~/.bashrc
+source ~/.bashrc
+
+ghepanh ~/anh_ve_tinh
+```
+
+---
+
+## Phần C — Cách tự động (không bắt buộc)
+
+Nếu không muốn gõ các lệnh ở phần A2 và B2, bạn có thể dùng script có sẵn. Script làm đúng các bước tạo `.venv` và cài thư viện như trên.
+
+| | Cài đặt (1 lần) | Chạy |
+|---|---|---|
+| Windows | nhấp đúp `install.bat` | `stitch.bat D:\anh_ve_tinh`, hoặc **kéo thả thư mục ảnh vào `stitch.bat`** |
+| Ubuntu | `chmod +x *.sh && ./install.sh` | `./stitch.sh ~/anh_ve_tinh` |
+
+`stitch.bat` và `stitch.sh` tự dùng Python trong `.venv`, nên không cần kích hoạt.
+
+---
+
+## Phần D — Cú pháp lệnh và tuỳ chọn
+
+```
+python stitch.py <thư_mục_ảnh> [tuỳ chọn]
+python stitch.py <ảnh1> <ảnh2> ... [tuỳ chọn]     # file đầu tiên là ảnh chuẩn
+```
+
+| Tuỳ chọn | Ý nghĩa | Mặc định |
+|---|---|---|
+| `-o FILE` | Đường dẫn file kết quả | `<thư mục>/stitched.png` |
+| `-r` | Quét cả các thư mục con | không quét |
+| `--model translation` | Chỉ dịch chuyển. Phù hợp ảnh chụp màn hình cùng mức zoom, không xoay | |
+| `--model similarity` | Dịch, xoay và co giãn. Phù hợp hầu hết ảnh vệ tinh hoặc bản đồ | ✔ |
+| `--model homography` | Phối cảnh đầy đủ. Dùng cho ảnh chụp nghiêng hoặc ảnh scan bị méo | |
+| `--blend keep` | Ở vùng chồng nhau thì giữ ảnh đã ghép trước | ✔ |
+| `--blend feather` | Trộn mượt vùng chồng nhau, ít thấy đường nối hơn | |
+| `--max-side N` | Kích thước tối đa dùng khi dò đặc trưng. Giảm để chạy nhanh hơn, tăng để chính xác hơn | 2000 |
+| `--min-inliers N` | Số điểm khớp tối thiểu để chấp nhận ghép một ảnh | 25 |
+| `-h` | Xem trợ giúp | |
+
+Ví dụ (đã kích hoạt `.venv`):
+```bash
+python stitch.py D:\anh_ve_tinh -o D:\ket_qua\ban_do.png --blend feather
+python stitch.py ~/du_an -r --model homography
+python stitch.py 1.png 2.png 3.png -o out.png
+```
 
 Ví dụ màn hình khi chạy:
 ```
@@ -59,44 +193,30 @@ Quét D:\anh_ve_tinh: tìm thấy 3 ảnh (theo thời gian tạo, cũ nhất tr
 Đã lưu D:\anh_ve_tinh\stitched.png (3607×1345)
 ```
 
-### Các tuỳ chọn
+---
 
-| Tuỳ chọn | Ý nghĩa | Mặc định |
-|---|---|---|
-| `-o FILE` | Đường dẫn file kết quả | `<thư mục>\stitched.png` |
-| `-r` | Quét cả các thư mục con | không quét |
-| `--model translation` | Chỉ dịch chuyển, phù hợp ảnh chụp màn hình cùng mức zoom và không xoay | |
-| `--model similarity` | Dịch, xoay và co giãn. Phù hợp hầu hết ảnh vệ tinh hoặc bản đồ | ✔ |
-| `--model homography` | Phối cảnh đầy đủ, dùng cho ảnh chụp nghiêng hoặc ảnh scan bị méo | |
-| `--blend keep` | Ở vùng chồng nhau thì giữ ảnh đã ghép trước | ✔ |
-| `--blend feather` | Trộn mượt vùng chồng nhau, ít thấy đường nối hơn | |
-| `--max-side N` | Kích thước tối đa dùng khi dò đặc trưng. Giảm để chạy nhanh hơn, tăng để chính xác hơn | 2000 |
-| `--min-inliers N` | Số điểm khớp tối thiểu để chấp nhận ghép một ảnh | 25 |
-
-Ví dụ:
-```bat
-stitch.bat D:\anh_ve_tinh -o D:\ket_qua\ban_do.png --blend feather
-stitch.bat D:\du_an -r --model homography
-stitch.bat 1.png 2.png 3.png -o out.png   (truyền danh sách file: file đầu tiên là ảnh chuẩn)
-```
-
-## 4. Lưu ý
+## Phần E — Lưu ý
 
 - **Định dạng ảnh được nhận:** png, jpg, jpeg, tif, tiff, bmp, webp. File `stitched.png` cũ trong thư mục sẽ không bị quét lại.
 - **Thời gian tạo file:**
-  - Windows và macOS dùng thời gian tạo thật.
-  - Linux dùng thời gian sửa đổi.
-  - Copy hoặc giải nén file có thể làm đổi thời gian tạo. Nếu ảnh chuẩn bị chọn sai, hãy truyền danh sách file theo thứ tự mong muốn.
+  - Windows dùng thời gian tạo thật.
+  - Ubuntu dùng thời gian sửa đổi, vì hệ thống thường không cung cấp thời gian tạo.
+  - Copy hoặc giải nén có thể làm đổi thời gian này. Nếu ảnh chuẩn bị chọn sai, hãy truyền danh sách file theo thứ tự mong muốn.
 - **Mỗi ảnh nên chồng lên ít nhất ~20–30% với một ảnh khác.** Ảnh không tìm thấy phần giao sẽ bị bỏ qua và in cảnh báo `KHÔNG tìm thấy phần giao nhau`.
-- **Mẹo khi chụp ảnh bản đồ hoặc vệ tinh:** giữ cùng mức zoom. Tránh chụp lúc ảnh đang tải dở (bị mờ hoặc thiếu ô). Tắt nhãn, đường và icon nếu có thể, vì chúng trôi theo màn hình và làm giảm độ khớp.
-- **Ảnh rất nhiều hoặc rất lớn:** canvas kết quả có thể tốn nhiều RAM. Nên ghép theo từng cụm rồi ghép các cụm lại với nhau.
+- **Khi chụp ảnh bản đồ hoặc vệ tinh:** giữ cùng mức zoom, chờ ảnh tải xong mới chụp, và tắt nhãn hoặc icon nếu có thể.
+- **Ghép rất nhiều ảnh lớn** sẽ tốn RAM. Khi đó nên ghép theo cụm rồi ghép các cụm lại với nhau.
+- **Gỡ cài đặt:** xoá thư mục `ghep-anh`. **Cài lại từ đầu:** xoá thư mục `.venv` rồi làm lại bước A2 hoặc B2.
+- **Không di chuyển hoặc đổi tên thư mục chứa `.venv`** sau khi tạo, vì môi trường ảo sẽ hỏng. Nếu đã lỡ làm, hãy xoá `.venv` rồi tạo lại.
 
-## 5. Xử lý lỗi thường gặp
+## Phần F — Xử lý lỗi thường gặp
 
 | Lỗi | Cách xử lý |
 |---|---|
-| `Không tìm thấy Python` | Cài Python và tick "Add to PATH", rồi mở lại cửa sổ cmd |
-| `Chưa cài đặt. Hãy chạy install...` | Chạy `install.bat` / `install.sh` |
-| `Không tạo được venv` (Ubuntu) | `sudo apt install python3-venv` |
-| Ảnh bị ghép lệch hoặc méo | Thử `--model translation`, hoặc tăng `--min-inliers 50` |
-| Một số ảnh bị bỏ qua | Tăng `--max-side 3000`, hoặc kiểm tra lại phần chồng giữa các ảnh |
+| `'python' is not recognized...` (Windows) | Cài lại Python và tick "Add to PATH", hoặc dùng `py` thay cho `python` |
+| `running scripts is disabled` (PowerShell) | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| `No module named venv` / `ensurepip is not available` (Ubuntu) | `sudo apt install python3-venv` |
+| `externally-managed-environment` (Ubuntu) | Chưa kích hoạt `.venv`: chạy `source .venv/bin/activate` |
+| `ModuleNotFoundError: No module named 'cv2'` | Chưa kích hoạt `.venv`, hoặc chưa chạy `pip install -r requirements.txt` |
+| `libGL.so.1: cannot open shared object` (Ubuntu) | Lỗi này xảy ra khi bạn cài `opencv-python` thay cho bản headless. Chạy `pip uninstall opencv-python` rồi `pip install opencv-python-headless` |
+| Ảnh bị ghép lệch hoặc méo | Thử `--model translation`, hoặc `--min-inliers 50` |
+| Một số ảnh bị bỏ qua | Thử `--max-side 3000`, hoặc kiểm tra lại phần chồng giữa các ảnh |
