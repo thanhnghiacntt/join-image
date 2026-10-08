@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 
 import argparse
 import os
@@ -20,6 +20,25 @@ def clamp_to_dtype(data, dtype):
     return data.astype(np_dtype)
 
 
+def get_transparency_mask(src, red, green, blue, alpha=None):
+    """
+    Tạo mask cho các pixel trong suốt.
+
+    Pixel được coi là trong suốt nếu:
+    - có giá trị nodata trên ít nhất một band RGB; hoặc
+    - band alpha tồn tại và alpha <= 0.
+    """
+    mask = np.zeros(red.shape, dtype=bool)
+
+    if src.nodata is not None:
+        mask |= (red == src.nodata) | (green == src.nodata) | (blue == src.nodata)
+
+    if alpha is not None:
+        mask |= alpha <= 0
+
+    return mask
+
+
 def create_pseudo_nir(input_file, output_file):
     """
     Tạo GeoTIFF 4 band:
@@ -31,6 +50,11 @@ def create_pseudo_nir(input_file, output_file):
     Công thức:
         NIR = G + (G - R)
             = 2*G - R
+
+    Lưu ý:
+        Nếu ảnh đầu vào có vùng trong suốt (alpha = 0 hoặc nodata),
+        các pixel đó cũng sẽ được giữ trong suốt ở band NIR bằng cách
+        đặt giá trị nodata tương ứng.
     """
 
     with rasterio.open(input_file) as src:
@@ -54,9 +78,16 @@ def create_pseudo_nir(input_file, output_file):
         print()
 
         dtype = src.dtypes[0]
+        alpha = src.read(4) if src.count >= 4 else None
 
         # Copy metadata từ file gốc
         profile = src.profile.copy()
+
+        # Nếu ảnh gốc có alpha hoặc nodata, giữ lại tính trong suốt cho output
+        if src.nodata is not None:
+            profile["nodata"] = src.nodata
+        elif alpha is not None:
+            profile["nodata"] = 0
 
         # Output gồm RGB + NIR
         profile.update(
@@ -86,27 +117,30 @@ def create_pseudo_nir(input_file, output_file):
                     window=window
                 ).astype(np.float32)
 
-                # ========================================
-                # PSEUDO NIR
-                #
-                # NIR = G + (G - R)
-                #     = 2*G - R
-                # ========================================
+                alpha_block = None
+                if alpha is not None:
+                    alpha_block = src.read(
+                        4,
+                        window=window
+                    ).astype(np.float32)
+
+                invalid_mask = get_transparency_mask(
+                    src=src,
+                    red=red,
+                    green=green,
+                    blue=blue,
+                    alpha=alpha_block
+                )
 
                 nir = 2.0 * green - red
 
-                # Xử lý NoData
-                if src.nodata is not None:
+                nodata_value = src.nodata if src.nodata is not None else 0
+                nir[invalid_mask] = nodata_value
 
-                    nodata = src.nodata
-
-                    invalid_mask = (
-                        (red == nodata)
-                        | (green == nodata)
-                        | (blue == nodata)
-                    )
-
-                    nir[invalid_mask] = nodata
+                # Giữ nguyên vùng trong suốt ở cả 3 band RGB và band NIR
+                red[invalid_mask] = nodata_value
+                green[invalid_mask] = nodata_value
+                blue[invalid_mask] = nodata_value
 
                 # Giới hạn về đúng datatype gốc
                 nir = clamp_to_dtype(
@@ -171,9 +205,13 @@ def create_pseudo_nir(input_file, output_file):
     print("Band 3 : Blue")
     print("Band 4 : Pseudo-NIR")
     print()
-    print("Formula:")
+    print("Công thức:")
     print("NIR = G + (G - R)")
     print("    = 2*G - R")
+    print()
+    print("Lưu ý:")
+    print("- Nếu ảnh đầu vào có vùng trong suốt (alpha = 0 hoặc nodata),")
+    print("  phần trong suốt đó cũng sẽ được giữ ở band NIR.")
 
 
 def main():
@@ -182,14 +220,23 @@ def main():
         description=(
             "Tạo pseudo-NIR từ GeoTIFF RGB. "
             "Output gồm 4 band: R, G, B, NIR."
-        )
+        ),
+        epilog=(
+            "Ví dụ dùng:\n"
+            "  python nir.py -i input.tif -o output_nir.tif\n"
+            "  python nir.py --input input.tif --output output_nir.tif\n\n"
+            "Nếu ảnh đầu vào có nền trong suốt (alpha = 0 hoặc nodata),\n"
+            "vùng đó cũng sẽ được giữ trong suốt ở mặt NIR để khi ghép ảnh\n"
+            "không xuất hiện nền trắng/đen lạ."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     parser.add_argument(
         "-i",
         "--input",
         required=True,
-        help="File GeoTIFF RGB đầu vào"
+        help="File GeoTIFF RGB hoặc RGBA đầu vào"
     )
 
     parser.add_argument(

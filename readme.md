@@ -9,6 +9,7 @@ Thư mục công cụ gồm:
 ```
 ghep-anh/
 ├── stitch.py          # chương trình chính
+├── nir.py             # tạo band pseudo-NIR từ GeoTIFF RGB (xem Phần G)
 ├── requirements.txt   # danh sách thư viện (numpy, opencv-python-headless)
 ├── install.bat / install.sh   # (tuỳ chọn) script cài tự động
 ├── stitch.bat  / stitch.sh    # (tuỳ chọn) script chạy nhanh
@@ -220,3 +221,51 @@ Quét D:\anh_ve_tinh: tìm thấy 3 ảnh (theo thời gian tạo, cũ nhất tr
 | `libGL.so.1: cannot open shared object` (Ubuntu) | Lỗi này xảy ra khi bạn cài `opencv-python` thay cho bản headless. Chạy `pip uninstall opencv-python` rồi `pip install opencv-python-headless` |
 | Ảnh bị ghép lệch hoặc méo | Thử `--model translation`, hoặc `--min-inliers 50` |
 | Một số ảnh bị bỏ qua | Thử `--max-side 3000`, hoặc kiểm tra lại phần chồng giữa các ảnh |
+
+---
+
+## Phần G — Tạo band pseudo-NIR từ GeoTIFF (nir.py)
+
+`nir.py` đọc một file GeoTIFF **RGB hoặc RGBA** và ghi ra GeoTIFF mới có **4 band**. Band thứ 4 là NIR (cận hồng ngoại) giả lập, tính từ Red và Green.
+
+| Band | Nội dung |
+|---|---|
+| 1 | Red |
+| 2 | Green |
+| 3 | Blue |
+| 4 | Pseudo-NIR |
+
+**Công thức:** `NIR = G + (G - R) = 2*G - R`
+
+Đây chỉ là giá trị ước lượng từ ảnh màu thường, không phải dữ liệu NIR thật từ cảm biến.
+
+### G1. Cài thư viện
+`nir.py` cần thêm `rasterio`, thư viện này chưa có trong `requirements.txt`. Kích hoạt `.venv` rồi cài:
+```bash
+pip install rasterio
+```
+
+### G2. Cú pháp
+```
+python nir.py -i <file_vào.tif> -o <file_ra.tif>
+```
+
+| Tuỳ chọn | Ý nghĩa | Bắt buộc |
+|---|---|---|
+| `-i`, `--input` | GeoTIFF RGB hoặc RGBA đầu vào | ✔ |
+| `-o`, `--output` | GeoTIFF RGB+NIR đầu ra | ✔ |
+| `-h` | Xem trợ giúp | |
+
+Ví dụ:
+```bash
+python nir.py -i stitched_georef.tif -o stitched_nir.tif
+python nir.py --input D:\anh\input.tif --output D:\anh\output_nir.tif
+```
+
+### G3. Lưu ý
+- File đầu vào phải có **ít nhất 3 band**. Nếu ít hơn, chương trình báo lỗi.
+- File đầu ra giữ nguyên kích thước, hệ toạ độ (CRS), kiểu dữ liệu và thông tin địa lý của file gốc. Kết quả nén bằng LZW.
+- **Vùng trong suốt** (alpha = 0 hoặc trùng giá trị nodata) được giữ trong suốt ở cả 4 band. Nếu file gốc có alpha mà không có nodata, nodata của file ra là `0`.
+- Giá trị NIR vượt miền của kiểu dữ liệu được cắt về giới hạn. Ví dụ ảnh 8-bit bị giới hạn trong 0–255.
+- Chương trình xử lý theo từng khối (block), nên ảnh lớn không cần nạp hết vào RAM.
+- Nếu muốn có hệ toạ độ, hãy dùng ảnh GeoTIFF đã được gán toạ độ (georeferenced). Ảnh `stitched.png` từ `stitch.py` không có thông tin này.
